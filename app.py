@@ -18,7 +18,12 @@ def _resolve_paths():
         data_dir.mkdir(parents=True, exist_ok=True)
     else:
         runtime_dir = Path(__file__).resolve().parent
-        data_dir = runtime_dir
+        # Sur Render, utiliser /tmp/ pour les données persistantes
+        if os.environ.get("RENDER"):
+            data_dir = Path("/tmp/diandishop_data")
+            data_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            data_dir = runtime_dir
 
     return runtime_dir, data_dir
 
@@ -43,59 +48,63 @@ def get_db():
     return conn
 
 def init_db():
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    cursor.executescript("""
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT NOT NULL,
-            couleur TEXT DEFAULT '#22c55e'
-        );
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.executescript("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                couleur TEXT DEFAULT '#22c55e'
+            );
 
-        CREATE TABLE IF NOT EXISTS produits (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT NOT NULL,
-            prix REAL NOT NULL,
-            stock INTEGER DEFAULT 0,
-            stock_alerte INTEGER DEFAULT 5,
-            categorie_id INTEGER,
-            actif INTEGER DEFAULT 1,
-            FOREIGN KEY (categorie_id) REFERENCES categories(id)
-        );
+            CREATE TABLE IF NOT EXISTS produits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                prix REAL NOT NULL,
+                stock INTEGER DEFAULT 0,
+                stock_alerte INTEGER DEFAULT 5,
+                categorie_id INTEGER,
+                actif INTEGER DEFAULT 1,
+                FOREIGN KEY (categorie_id) REFERENCES categories(id)
+            );
 
-        CREATE TABLE IF NOT EXISTS ventes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            total REAL NOT NULL,
-            paiement TEXT DEFAULT 'especes',
-            monnaie REAL DEFAULT 0,
-            date_vente TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+            CREATE TABLE IF NOT EXISTS ventes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                total REAL NOT NULL,
+                paiement TEXT DEFAULT 'especes',
+                monnaie REAL DEFAULT 0,
+                date_vente TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
 
-        CREATE TABLE IF NOT EXISTS vente_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vente_id INTEGER,
-            produit_id INTEGER,
-            nom_produit TEXT,
-            prix_unitaire REAL,
-            quantite INTEGER,
-            sous_total REAL,
-            FOREIGN KEY (vente_id) REFERENCES ventes(id),
-            FOREIGN KEY (produit_id) REFERENCES produits(id)
-        );
+            CREATE TABLE IF NOT EXISTS vente_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                vente_id INTEGER,
+                produit_id INTEGER,
+                nom_produit TEXT,
+                prix_unitaire REAL,
+                quantite INTEGER,
+                sous_total REAL,
+                FOREIGN KEY (vente_id) REFERENCES ventes(id),
+                FOREIGN KEY (produit_id) REFERENCES produits(id)
+            );
 
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT NOT NULL,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL CHECK (role IN ('admin', 'caissiere')),
-            actif INTEGER DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """)
-    conn.commit()
-    conn.close()
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT NOT NULL,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('admin', 'caissiere')),
+                actif INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Erreur lors de l'initialisation de la base de données: {e}")
+        raise
 
 
 def _is_api_request():
