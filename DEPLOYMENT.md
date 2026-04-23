@@ -3,7 +3,7 @@
 ## 1) Prerequisites
 
 - Vercel account + linked GitHub repository
-- Python 3.9+ runtime
+- Python 3.11+ runtime
 - Node.js 20+
 
 ## 2) Project structure
@@ -18,7 +18,7 @@
 
 - frontend build command: `cd frontend && npm ci && npm run build`
 - output directory: `frontend/dist`
-- function runtime: `api/app.py` on Python 3.9
+- function runtime: `api/app.py` on Python 3.11
 - rewrites:
   - `/api/*` -> `/api/app.py`
   - all other routes -> SPA `index.html`

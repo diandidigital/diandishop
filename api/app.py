@@ -45,8 +45,8 @@ CORS(
     origins=os.environ.get("FRONTEND_ORIGIN", "*"),
 )
 
-# Code d'activation requis pour creer le tout premier compte admin.
-# Definir la variable d'environnement SETUP_CODE pour personnaliser.
+# Code d'activation requis pour créer le tout premier compte admin.
+# Définir la variable d'environnement SETUP_CODE pour personnaliser.
 SETUP_CODE = os.environ.get("SETUP_CODE", "diandi2024")
 
 def get_db():

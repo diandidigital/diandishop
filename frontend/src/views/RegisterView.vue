@@ -35,7 +35,7 @@ const submit = async () => {
         <input v-model="form.setup_code" class="input" placeholder="Code activation (premier admin)">
         <button class="btn-primary w-full" type="submit">S'inscrire</button>
       </form>
-      <RouterLink class="mt-3 inline-block text-sm text-emerald-600" to="/login">Deja un compte ?</RouterLink>
+      <RouterLink class="mt-3 inline-block text-sm text-emerald-600" to="/login">Déjà un compte ?</RouterLink>
     </div>
   </div>
 </template>

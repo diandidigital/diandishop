@@ -29,7 +29,7 @@ const submit = async () => {
         <input v-model="form.password" type="password" class="input" placeholder="Mot de passe" required>
         <button class="btn-primary w-full" type="submit">Se connecter</button>
       </form>
-      <RouterLink class="mt-3 inline-block text-sm text-emerald-600" to="/register">Creer un compte</RouterLink>
+      <RouterLink class="mt-3 inline-block text-sm text-emerald-600" to="/register">Créer un compte</RouterLink>
     </div>
   </div>
 </template>

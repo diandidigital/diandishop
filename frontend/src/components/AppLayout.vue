@@ -11,7 +11,7 @@
         <RouterLink class="block rounded px-3 py-2 hover:bg-slate-700" to="/produits">Produits</RouterLink>
         <RouterLink class="block rounded px-3 py-2 hover:bg-slate-700" to="/stock">Stock</RouterLink>
       </nav>
-      <button class="btn mt-6 bg-red-500 text-white hover:bg-red-600" @click="$emit('logout')">Se deconnecter</button>
+      <button class="btn mt-6 bg-red-500 text-white hover:bg-red-600" @click="$emit('logout')">Se déconnecter</button>
     </aside>
     <main class="flex-1 p-4 md:p-8">
       <slot />
