@@ -102,6 +102,7 @@ def init_db():
         """)
         conn.commit()
         conn.close()
+        print("✅ Base de données initialisée avec succès")
     except Exception as e:
         print(f"Erreur lors de l'initialisation de la base de données: {e}")
         raise
@@ -755,11 +756,14 @@ def seed_demo():
         }
     )
 
+# ─── INITIALISATION AUTOMATIQUE ─────────────────────────────
+# Initialiser la base de données au démarrage (inclus pour Gunicorn)
+init_db()
+
 # ─── LANCEMENT ───────────────────────────────────────────────
 def open_browser():
     webbrowser.open("http://localhost:5000")
 
 if __name__ == "__main__":
-    init_db()
     threading.Timer(1.5, open_browser).start()
     app.run(debug=False, port=5000)
