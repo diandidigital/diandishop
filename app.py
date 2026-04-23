@@ -518,7 +518,9 @@ def _seed_catalog(conn):
         ("Boissons", "#3b82f6"),
         ("Entretien", "#f59e0b"),
         ("Cosmetiques", "#ec4899"),
-        ("Divers", "#8b5cf6"),
+        ("Electronique", "#8b5cf6"),
+        ("Vetements", "#f97316"),
+        ("Accessoires", "#06b6d4"),
     ]
 
     for nom, couleur in categories:
@@ -536,27 +538,101 @@ def _seed_catalog(conn):
         for row in conn.execute("SELECT id, nom FROM categories").fetchall()
     }
 
+    # 80 produits fictifs adaptés à Abidjan Yopougon
     produits = [
-        ("Riz 1kg", 700, 50, 10, "Alimentation"),
-        ("Huile 1L", 1500, 30, 5, "Alimentation"),
-        ("Sucre 1kg", 600, 40, 10, "Alimentation"),
-        ("Lait en poudre 400g", 2200, 18, 4, "Alimentation"),
-        ("Coca-Cola 50cl", 500, 60, 10, "Boissons"),
-        ("Eau minerale 1.5L", 400, 80, 15, "Boissons"),
-        ("Jus Tampico 1L", 800, 25, 5, "Boissons"),
-        ("Cafe soluble 100g", 1800, 22, 6, "Boissons"),
-        ("Savon OMO 500g", 1200, 20, 5, "Entretien"),
-        ("Javel 1L", 600, 15, 3, "Entretien"),
-        ("Eponge cuisine", 300, 45, 8, "Entretien"),
-        ("Papier toilette x4", 1500, 28, 6, "Entretien"),
-        ("Creme Nivea", 2500, 10, 3, "Cosmetiques"),
-        ("Savon de toilette", 400, 35, 5, "Cosmetiques"),
-        ("Shampoing 250ml", 2300, 14, 4, "Cosmetiques"),
-        ("Dentifrice 120ml", 1200, 26, 6, "Cosmetiques"),
-        ("Piles AA x2", 900, 16, 4, "Divers"),
-        ("Bougie", 250, 70, 15, "Divers"),
-        ("Allumettes", 100, 90, 20, "Divers"),
-        ("Sacs plastiques x50", 1000, 24, 6, "Divers"),
+        # Alimentation (20 produits)
+        ("Riz Wita 1kg", 800, 100, 10, "Alimentation"),
+        ("Riz Wita 5kg", 3500, 50, 5, "Alimentation"),
+        ("Huile Fryna 1L", 1200, 80, 10, "Alimentation"),
+        ("Huile Fryna 5L", 5500, 30, 5, "Alimentation"),
+        ("Sucre roux 1kg", 700, 100, 10, "Alimentation"),
+        ("Sucre blanc 1kg", 750, 90, 10, "Alimentation"),
+        ("Lait Nido 400g", 2200, 60, 8, "Alimentation"),
+        ("Lait Nido 900g", 4500, 30, 5, "Alimentation"),
+        ("Farine de blé 1kg", 600, 80, 10, "Alimentation"),
+        ("Farine de maïs 1kg", 550, 85, 10, "Alimentation"),
+        ("Poudre de tomate 200g", 800, 70, 8, "Alimentation"),
+        ("Sel iodé 1kg", 400, 120, 15, "Alimentation"),
+        ("Poisson sec 1kg", 2500, 20, 3, "Alimentation"),
+        ("Œuf frais (12)", 3500, 40, 5, "Alimentation"),
+        ("Beurre de karité 500g", 2000, 25, 4, "Alimentation"),
+        ("Arachides grillées 1kg", 1500, 60, 8, "Alimentation"),
+        ("Pâtes italiennes 500g", 700, 100, 10, "Alimentation"),
+        ("Piment rouge poudre 100g", 900, 50, 6, "Alimentation"),
+        ("Miel naturel 500ml", 3500, 20, 3, "Alimentation"),
+        ("Noix de coco râpée 500g", 1800, 30, 5, "Alimentation"),
+
+        # Boissons (15 produits)
+        ("Coca-Cola 50cl", 600, 200, 20, "Boissons"),
+        ("Fanta Orange 50cl", 550, 180, 20, "Boissons"),
+        ("Sprite 50cl", 550, 180, 20, "Boissons"),
+        ("Eau minérale 1.5L", 500, 300, 30, "Boissons"),
+        ("Eau minérale 0.5L", 200, 400, 40, "Boissons"),
+        ("Jus Tampico 1L", 1000, 100, 10, "Boissons"),
+        ("Jus Frais Orange 1L", 1200, 80, 10, "Boissons"),
+        ("Café soluble Nescafé 100g", 2200, 40, 5, "Boissons"),
+        ("Café moulu 500g", 3500, 30, 4, "Boissons"),
+        ("Thé en sachets 25", 1200, 60, 8, "Boissons"),
+        ("Lait concentré Carnation 397g", 1200, 50, 6, "Boissons"),
+        ("Boisson Gatorade 500ml", 800, 60, 8, "Boissons"),
+        ("Vin rouge 750ml", 2500, 20, 3, "Boissons"),
+        ("Bière 33cl", 600, 100, 10, "Boissons"),
+        ("Whisky 500ml", 5000, 15, 2, "Boissons"),
+
+        # Entretien (15 produits)
+        ("Savon OMO 500g", 1200, 100, 10, "Entretien"),
+        ("Lessive OMO 500ml", 1800, 80, 10, "Entretien"),
+        ("Javel 1L", 700, 120, 15, "Entretien"),
+        ("Désinfectant 1L", 1500, 60, 8, "Entretien"),
+        ("Éponge cuisine", 400, 150, 20, "Entretien"),
+        ("Balai plastique", 1200, 40, 5, "Entretien"),
+        ("Pelle poussière", 900, 35, 5, "Entretien"),
+        ("Papier toilette x4", 1800, 200, 25, "Entretien"),
+        ("Papier essuie-tout", 1500, 180, 20, "Entretien"),
+        ("Mouchoirs 50", 800, 100, 10, "Entretien"),
+        ("Savon liquide main 500ml", 1200, 60, 8, "Entretien"),
+        ("Shampoing cheveux 500ml", 2200, 40, 5, "Entretien"),
+        ("Dentifrice 120ml", 1300, 80, 10, "Entretien"),
+        ("Déodorant spray 200ml", 1500, 50, 6, "Entretien"),
+        ("Brosserie nylon", 600, 100, 12, "Entretien"),
+
+        # Cosmétiques (12 produits)
+        ("Crème visage Nivea 50ml", 2800, 35, 4, "Cosmetiques"),
+        ("Crème mains Nivea 75ml", 2000, 45, 5, "Cosmetiques"),
+        ("Savon beauté 100g", 800, 100, 12, "Cosmetiques"),
+        ("Gel douche Duru 500ml", 1800, 50, 6, "Cosmetiques"),
+        ("Lotion corporelle 500ml", 2200, 40, 5, "Cosmetiques"),
+        ("Rouge à lèvres Maybelline", 3500, 20, 3, "Cosmetiques"),
+        ("Mascara Black 7ml", 3000, 25, 3, "Cosmetiques"),
+        ("Eyeliner liquide 5ml", 2500, 30, 4, "Cosmetiques"),
+        ("Fond de teint 30ml", 4000, 20, 2, "Cosmetiques"),
+        ("Poudre compacte 12g", 3500, 25, 3, "Cosmetiques"),
+        ("Huile de coco 500ml", 2500, 35, 4, "Cosmetiques"),
+        ("Sérum visage 30ml", 5000, 15, 2, "Cosmetiques"),
+
+        # Electronique (10 produits)
+        ("Ampoule LED 9W", 2500, 100, 10, "Electronique"),
+        ("Piles AA (2)", 1200, 150, 20, "Electronique"),
+        ("Piles AAA (2)", 1000, 150, 20, "Electronique"),
+        ("Batterie de secours 10000mAh", 8000, 30, 4, "Electronique"),
+        ("Chargeur USB 2.1A", 4500, 40, 5, "Electronique"),
+        ("Câble USB type C", 2500, 60, 8, "Electronique"),
+        ("Adaptateur électrique USB", 3500, 50, 6, "Electronique"),
+        ("Lampe torche LED", 5000, 25, 3, "Electronique"),
+        ("Radio FM portable", 7500, 15, 2, "Electronique"),
+        ("Enceinte Bluetooth", 12000, 10, 1, "Electronique"),
+
+        # Vêtements (6 produits)
+        ("T-shirt coton XL", 3500, 80, 10, "Vetements"),
+        ("Chemise homme M", 8000, 40, 5, "Vetements"),
+        ("Pantalon jeans 34", 12000, 35, 4, "Vetements"),
+        ("Short coton L", 5000, 50, 6, "Vetements"),
+        ("Chaussettes x3", 2000, 100, 12, "Vetements"),
+        ("Ceinture cuir", 4500, 60, 8, "Vetements"),
+
+        # Accessoires (2 produits)
+        ("Clé USB 32GB", 8000, 20, 3, "Accessoires"),
+        ("Montre digitale", 15000, 15, 2, "Accessoires"),
     ]
 
     for nom, prix, stock, stock_alerte, cat_name in produits:
