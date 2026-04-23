@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>Inscription - DiandiShop</title>
+    <link rel="stylesheet" href="/static/css/auth.css">
+</head>
+<body class="auth-page">
+    <div class="auth-shell">
+        <section class="auth-hero">
+            <div class="brand-chip">DIANDI SHOP</div>
+            <h1>Creation de<br>compte utilisateur</h1>
+            {% if has_users %}
+            <p>Le compte cree sera disponible pour l'equipe (admin ou caissier).</p>
+            {% else %}
+            <p>Premier lancement : un code d'activation est requis pour creer le compte administrateur.</p>
+            {% endif %}
+            <div class="hero-card">
+                <span>Securite</span>
+                <strong>Acces par role</strong>
+            </div>
+        </section>
+
+        <section class="auth-panel">
+            <h2>Inscription</h2>
+            <p class="sub">Configure un nouveau profil</p>
+
+            {% if error %}
+            <div class="auth-alert auth-alert-error">{{ error }}</div>
+            {% endif %}
+            {% if message %}
+            <div class="auth-alert">{{ message }}</div>
+            {% endif %}
+
+            <form method="POST" class="auth-form">
+                <label>Nom complet</label>
+                <input type="text" name="nom" class="auth-input" placeholder="ex: Marie Diallo" required>
+
+                <label>Nom d'utilisateur</label>
+                <input type="text" name="username" class="auth-input" placeholder="ex: marie" required>
+
+                <label>Mot de passe</label>
+                <input type="password" name="password" class="auth-input" placeholder="minimum 4 caracteres" minlength="4" required>
+
+                {% if not has_users %}
+                <label>Code d'activation</label>
+                <input type="password" name="setup_code" class="auth-input" placeholder="Code fourni par l'editeur" required>
+                {% endif %}
+
+                {% if has_users %}
+                <label>Role</label>
+                <select name="role" class="auth-input" required>
+                    <option value="caissiere">Caissiere</option>
+                    <option value="admin">Admin</option>
+                </select>
+                {% endif %}
+
+                <button type="submit" class="auth-button">Creer le compte</button>
+            </form>
+
+            <p class="auth-switch">
+                Deja un compte ? <a href="/login">Connexion</a>
+            </p>
+        </section>
+    </div>
+</body>
+</html>

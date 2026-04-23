@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2749d7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#163d9f;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#27b8ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4f6aff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Fond arrondi bleu -->
+  <rect width="512" height="512" rx="100" ry="100" fill="url(#bgGrad)"/>
+
+  <!-- Sac shopping stylisé -->
+  <!-- Corps du sac -->
+  <rect x="120" y="220" width="272" height="210" rx="22" ry="22" fill="white" opacity="0.95"/>
+
+  <!-- Poignée du sac -->
+  <path d="M190 220 C190 150, 322 150, 322 220" fill="none" stroke="white" stroke-width="30" stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Bande accent en bas du sac -->
+  <rect x="120" y="380" width="272" height="50" rx="0" ry="0" fill="url(#accentGrad)" opacity="0.9"/>
+  <rect x="120" y="380" width="272" height="50" rx="22" ry="22" fill="url(#accentGrad)" opacity="0.9"/>
+
+  <!-- Lettre D stylisée au centre du sac -->
+  <text x="256" y="335" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="100" font-weight="900" fill="url(#bgGrad)">DS</text>
+
+  <!-- Petits cercles décoratifs en haut -->
+  <circle cx="140" cy="80" r="18" fill="white" opacity="0.18"/>
+  <circle cx="372" cy="60" r="12" fill="white" opacity="0.13"/>
+  <circle cx="420" cy="110" r="8" fill="#27b8ff" opacity="0.35"/>
+</svg>

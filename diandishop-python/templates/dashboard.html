@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>DiandiShop - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <h2>🛒 DiandiShop</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item active">📊 Dashboard</a>
+                <a href="/pos" class="nav-item">💰 Caisse</a>
+                <a href="/produits" class="nav-item">📦 Produits</a>
+                <a href="/stock" class="nav-item">⚠️ Stock</a>
+                <a href="/register" class="nav-item">👤 Utilisateurs</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="user-name">{{ auth_user }}</div>
+                <div class="user-role">{{ auth_role }}</div>
+                <a href="/logout" class="nav-item logout-link">Se deconnecter</a>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+            <div class="header">
+                <h1>Dashboard</h1>
+                <span id="date-today"></span>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Ventes du jour</span>
+                        <span class="stat-value" id="total-jour">0 FCFA</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🧾</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Transactions</span>
+                        <span class="stat-value" id="nb-ventes">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Produits actifs</span>
+                        <span class="stat-value" id="nb-produits">0</span>
+                    </div>
+                </div>
+                <div class="stat-card alert">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Alertes stock</span>
+                        <span class="stat-value" id="alertes-stock">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graphique -->
+            <div class="card">
+                <h3>Ventes des 7 derniers jours</h3>
+                <canvas id="chart-ventes" height="100"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Date
+        document.getElementById("date-today").textContent = 
+            new Date().toLocaleDateString("fr-FR", {weekday:"long", year:"numeric", month:"long", day:"numeric"});
+
+        // Charger dashboard
+        fetch("/api/dashboard")
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById("total-jour").textContent = 
+                    data.total_jour.toLocaleString("fr-FR") + " FCFA";
+                document.getElementById("nb-ventes").textContent = data.nb_ventes;
+                document.getElementById("nb-produits").textContent = data.nb_produits;
+                document.getElementById("alertes-stock").textContent = data.alertes_stock;
+
+                // Graphique
+                const labels = data.ventes_semaine.map(v => v.jour);
+                const totaux = data.ventes_semaine.map(v => v.total);
+                new Chart(document.getElementById("chart-ventes"), {
+                    type: "bar",
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: "Ventes (FCFA)",
+                            data: totaux,
+                            backgroundColor: "#22c55e",
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            });
+    </script>
+</body>
+</html>

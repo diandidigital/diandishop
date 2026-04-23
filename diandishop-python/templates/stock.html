@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>DiandiShop - Stock</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <h2>🛒 DiandiShop</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+                <a href="/pos" class="nav-item">💰 Caisse</a>
+                <a href="/produits" class="nav-item">📦 Produits</a>
+                <a href="/stock" class="nav-item active">⚠️ Stock</a>
+                <a href="/register" class="nav-item">👤 Utilisateurs</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="user-name">{{ auth_user }}</div>
+                <div class="user-role">{{ auth_role }}</div>
+                <a href="/logout" class="nav-item logout-link">Se deconnecter</a>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+            <div class="header">
+                <h1>Gestion du Stock</h1>
+            </div>
+
+            <!-- Résumé -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Stock OK</span>
+                        <span class="stat-value" id="nb-ok">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🟠</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Stock bas</span>
+                        <span class="stat-value" id="nb-bas">0</span>
+                    </div>
+                </div>
+                <div class="stat-card alert">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Rupture</span>
+                        <span class="stat-value" id="nb-rupture">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tableau stock -->
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Catégorie</th>
+                            <th>Stock actuel</th>
+                            <th>Seuil alerte</th>
+                            <th>Statut</th>
+                            <th>Réapprovisionner</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-tbody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal réappro -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>📦 Réapprovisionner</h3>
+            <p id="modal-produit-nom"></p>
+            <input type="hidden" id="modal-produit-id">
+            <div class="form-group">
+                <label>Quantité à ajouter</label>
+                <input type="number" id="quantite-ajout" class="input" 
+                       placeholder="Ex: 20" min="1">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="confirmerReappro()">✅ Confirmer</button>
+                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let produits = [];
+
+        async function charger() {
+            produits = await fetch("/api/produits").then(r => r.json());
+            afficherStock();
+        }
+
+        function afficherStock() {
+            const tbody = document.getElementById("stock-tbody");
+            let nbOk = 0, nbBas = 0, nbRupture = 0;
+
+            tbody.innerHTML = produits.map(p => {
+                let statut, badgeClass;
+                if (p.stock <= 0) {
+                    statut = "Rupture"; badgeClass = "badge-red"; nbRupture++;
+                } else if (p.stock <= p.stock_alerte) {
+                    statut = "Stock bas"; badgeClass = "badge-orange"; nbBas++;
+                } else {
+                    statut = "OK"; badgeClass = "badge-green"; nbOk++;
+                }
+                return `
+                    <tr>
+                        <td>${p.nom}</td>
+                        <td>${p.categorie_nom || "-"}</td>
+                        <td><strong>${p.stock}</strong></td>
+                        <td>${p.stock_alerte}</td>
+                        <td><span class="badge ${badgeClass}">${statut}</span></td>
+                        <td>
+                            <button class="btn-primary btn-sm" 
+                                onclick="ouvrirReappro(${p.id}, '${p.nom.replace(/'/g, "\\'")}')">
+                                + Réappro
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+
+            document.getElementById("nb-ok").textContent = nbOk;
+            document.getElementById("nb-bas").textContent = nbBas;
+            document.getElementById("nb-rupture").textContent = nbRupture;
+        }
+
+        function ouvrirReappro(id, nom) {
+            document.getElementById("modal-produit-id").value = id;
+            document.getElementById("modal-produit-nom").textContent = nom;
+            document.getElementById("quantite-ajout").value = "";
+            document.getElementById("modal").classList.remove("hidden");
+        }
+
+        function fermerModal() {
+            document.getElementById("modal").classList.add("hidden");
+        }
+
+        async function confirmerReappro() {
+            const id = document.getElementById("modal-produit-id").value;
+            const qte = parseInt(document.getElementById("quantite-ajout").value);
+            if (!qte || qte <= 0) return alert("Entrez une quantité valide !");
+            const produit = produits.find(p => p.id == id);
+            await fetch(`/api/produits/${id}`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    nom: produit.nom,
+                    prix: produit.prix,
+                    stock: produit.stock + qte,
+                    stock_alerte: produit.stock_alerte,
+                    categorie_id: produit.categorie_id
+                })
+            });
+            fermerModal();
+            charger();
+        }
+
+        charger();
+    </script>
+</body>
+</html>

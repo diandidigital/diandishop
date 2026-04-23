@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>DiandiShop - Caisse</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <h2>🛒 DiandiShop</h2>
+            </div>
+            <nav class="sidebar-nav">
+                {% if is_admin %}
+                <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+                {% endif %}
+                <a href="/pos" class="nav-item active">💰 Caisse</a>
+                {% if is_admin %}
+                <a href="/produits" class="nav-item">📦 Produits</a>
+                <a href="/stock" class="nav-item">⚠️ Stock</a>
+                <a href="/register" class="nav-item">👤 Utilisateurs</a>
+                {% endif %}
+            </nav>
+            <div class="sidebar-user">
+                <div class="user-name">{{ auth_user }}</div>
+                <div class="user-role">{{ auth_role }}</div>
+                <a href="/logout" class="nav-item logout-link">Se deconnecter</a>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main pos-layout">
+            <!-- Produits -->
+            <div class="pos-produits">
+                <div class="header">
+                    <h1>Caisse</h1>
+                </div>
+                <!-- Recherche et filtre -->
+                <div class="pos-filters">
+                    <input type="text" id="search" placeholder="🔍 Rechercher un produit..." 
+                           class="input" oninput="filtrerProduits()">
+                    <div id="categories-filter" class="categories-filter"></div>
+                </div>
+                <!-- Grille produits -->
+                <div id="produits-grid" class="produits-grid"></div>
+            </div>
+
+            <!-- Panier -->
+            <div class="pos-panier">
+                <h2>🧾 Panier</h2>
+                <div id="panier-items" class="panier-items"></div>
+                
+                <div class="panier-footer">
+                    <div class="panier-total">
+                        <span>Total</span>
+                        <span id="panier-total">0 FCFA</span>
+                    </div>
+                    <div class="paiement-options">
+                        <button class="btn-paiement active" onclick="setPaiement('especes')" id="btn-especes">
+                            💵 Espèces
+                        </button>
+                        <button class="btn-paiement" onclick="setPaiement('mobile')" id="btn-mobile">
+                            📱 Mobile Money
+                        </button>
+                    </div>
+                    <div id="monnaie-section" class="monnaie-section">
+                        <input type="number" id="montant-recu" placeholder="Montant reçu" 
+                               class="input" oninput="calculMonnaie()">
+                        <div class="monnaie-result">
+                            Monnaie : <strong id="monnaie">0 FCFA</strong>
+                        </div>
+                    </div>
+                    <button class="btn-encaisser" onclick="encaisser()">
+                        ✅ Encaisser
+                    </button>
+                    <button class="btn-vider" onclick="viderPanier()">
+                        🗑️ Vider le panier
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal confirmation -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>✅ Vente enregistrée !</h3>
+            <p id="modal-message"></p>
+            <button class="btn-encaisser" onclick="fermerModal()">Nouvelle vente</button>
+        </div>
+    </div>
+
+    <script>
+        let produits = [];
+        let categories = [];
+        let panier = [];
+        let paiement = "especes";
+        let categorieActive = null;
+
+        // Charger données
+        async function charger() {
+            const [p, c] = await Promise.all([
+                fetch("/api/produits").then(r => r.json()),
+                fetch("/api/categories").then(r => r.json())
+            ]);
+            produits = p;
+            categories = c;
+            afficherCategories();
+            afficherProduits();
+        }
+
+        function afficherCategories() {
+            const div = document.getElementById("categories-filter");
+            div.innerHTML = `<button class="btn-cat active" onclick="filtrerCategorie(null, this)">Tous</button>`;
+            categories.forEach(c => {
+                div.innerHTML += `<button class="btn-cat" onclick="filtrerCategorie(${c.id}, this)" 
+                    style="border-color:${c.couleur}">${c.nom}</button>`;
+            });
+        }
+
+        function filtrerCategorie(id, btn) {
+            categorieActive = id;
+            document.querySelectorAll(".btn-cat").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            afficherProduits();
+        }
+
+        function filtrerProduits() { afficherProduits(); }
+
+        function afficherProduits() {
+            const search = document.getElementById("search").value.toLowerCase();
+            const grid = document.getElementById("produits-grid");
+            let liste = produits.filter(p => {
+                const matchSearch = p.nom.toLowerCase().includes(search);
+                const matchCat = categorieActive ? p.categorie_id === categorieActive : true;
+                return matchSearch && matchCat;
+            });
+            grid.innerHTML = liste.map(p => `
+                <div class="produit-card ${p.stock <= 0 ? 'rupture' : ''}" 
+                     onclick="${p.stock > 0 ? `ajouterAuPanier(${p.id})` : ''}">
+                    <div class="produit-nom">${p.nom}</div>
+                    <div class="produit-prix">${p.prix.toLocaleString("fr-FR")} FCFA</div>
+                    <div class="produit-stock ${p.stock <= p.stock_alerte ? 'stock-bas' : ''}">
+                        Stock: ${p.stock}
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        function ajouterAuPanier(id) {
+            const produit = produits.find(p => p.id === id);
+            const item = panier.find(i => i.produit_id === id);
+            if (item) {
+                if (item.quantite < produit.stock) item.quantite++;
+            } else {
+                panier.push({ produit_id: id, nom_produit: produit.nom,
+                    prix_unitaire: produit.prix, quantite: 1 });
+            }
+            afficherPanier();
+        }
+
+        function afficherPanier() {
+            const div = document.getElementById("panier-items");
+            if (panier.length === 0) {
+                div.innerHTML = `<p class="panier-vide">Panier vide</p>`;
+            } else {
+                div.innerHTML = panier.map((item, i) => `
+                    <div class="panier-item">
+                        <div class="panier-item-nom">${item.nom_produit}</div>
+                        <div class="panier-item-controls">
+                            <button onclick="changerQte(${i}, -1)">−</button>
+                            <span>${item.quantite}</span>
+                            <button onclick="changerQte(${i}, 1)">+</button>
+                        </div>
+                        <div class="panier-item-prix">
+                            ${(item.prix_unitaire * item.quantite).toLocaleString("fr-FR")} FCFA
+                        </div>
+                        <button class="btn-suppr" onclick="supprimerItem(${i})">🗑</button>
+                    </div>
+                `).join("");
+            }
+            const total = panier.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
+            document.getElementById("panier-total").textContent = 
+                total.toLocaleString("fr-FR") + " FCFA";
+            calculMonnaie();
+        }
+
+        function changerQte(i, delta) {
+            panier[i].quantite += delta;
+            if (panier[i].quantite <= 0) panier.splice(i, 1);
+            afficherPanier();
+        }
+
+        function supprimerItem(i) {
+            panier.splice(i, 1);
+            afficherPanier();
+        }
+
+        function viderPanier() {
+            panier = [];
+            afficherPanier();
+        }
+
+        function setPaiement(type) {
+            paiement = type;
+            document.getElementById("btn-especes").classList.toggle("active", type === "especes");
+            document.getElementById("btn-mobile").classList.toggle("active", type === "mobile");
+            document.getElementById("monnaie-section").style.display = 
+                type === "especes" ? "block" : "none";
+        }
+
+        function calculMonnaie() {
+            const total = panier.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
+            const recu = parseFloat(document.getElementById("montant-recu").value) || 0;
+            const monnaie = recu - total;
+            document.getElementById("monnaie").textContent = 
+                (monnaie >= 0 ? monnaie : 0).toLocaleString("fr-FR") + " FCFA";
+        }
+
+        async function encaisser() {
+            if (panier.length === 0) return alert("Le panier est vide !");
+            const total = panier.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
+            const recu = parseFloat(document.getElementById("montant-recu").value) || total;
+            const data = {
+                total, paiement,
+                monnaie: paiement === "especes" ? recu - total : 0,
+                items: panier.map(i => ({ ...i, sous_total: i.prix_unitaire * i.quantite }))
+            };
+            await fetch("/api/ventes", { method: "POST",
+                headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+            document.getElementById("modal-message").textContent = 
+                `Total : ${total.toLocaleString("fr-FR")} FCFA — Paiement : ${paiement}`;
+            document.getElementById("modal").classList.remove("hidden");
+            viderPanier();
+            charger();
+        }
+
+        function fermerModal() {
+            document.getElementById("modal").classList.add("hidden");
+        }
+
+        charger();
+    </script>
+</body>
+</html>

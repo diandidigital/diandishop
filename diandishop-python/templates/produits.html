@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>DiandiShop - Produits</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <h2>🛒 DiandiShop</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+                <a href="/pos" class="nav-item">💰 Caisse</a>
+                <a href="/produits" class="nav-item active">📦 Produits</a>
+                <a href="/stock" class="nav-item">⚠️ Stock</a>
+                <a href="/register" class="nav-item">👤 Utilisateurs</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="user-name">{{ auth_user }}</div>
+                <div class="user-role">{{ auth_role }}</div>
+                <a href="/logout" class="nav-item logout-link">Se deconnecter</a>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+            <div class="header">
+                <h1>Produits</h1>
+                <button class="btn-primary" onclick="ouvrirModal()">+ Ajouter</button>
+            </div>
+
+            <!-- Filtres -->
+            <div class="filters">
+                <input type="text" id="search" placeholder="🔍 Rechercher..." 
+                       class="input" oninput="filtrer()">
+                <select id="filtre-cat" class="input" onchange="filtrer()">
+                    <option value="">Toutes les catégories</option>
+                </select>
+            </div>
+
+            <!-- Tableau -->
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Catégorie</th>
+                            <th>Prix</th>
+                            <th>Stock</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="produits-tbody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modal-titre">Ajouter un produit</h3>
+            <input type="hidden" id="produit-id">
+            <div class="form-group">
+                <label>Nom du produit</label>
+                <input type="text" id="produit-nom" class="input" placeholder="Ex: Riz 1kg">
+            </div>
+            <div class="form-group">
+                <label>Prix (FCFA)</label>
+                <input type="number" id="produit-prix" class="input" placeholder="Ex: 700">
+            </div>
+            <div class="form-group">
+                <label>Stock initial</label>
+                <input type="number" id="produit-stock" class="input" placeholder="Ex: 50">
+            </div>
+            <div class="form-group">
+                <label>Alerte stock bas</label>
+                <input type="number" id="produit-alerte" class="input" placeholder="Ex: 5">
+            </div>
+            <div class="form-group">
+                <label>Catégorie</label>
+                <select id="produit-categorie" class="input"></select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="sauvegarder()">💾 Sauvegarder</button>
+                <button class="btn-secondary" onclick="fermerModal()">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let produits = [];
+        let categories = [];
+
+        async function charger() {
+            const [p, c] = await Promise.all([
+                fetch("/api/produits").then(r => r.json()),
+                fetch("/api/categories").then(r => r.json())
+            ]);
+            produits = p;
+            categories = c;
+            afficherCategories();
+            afficherProduits();
+        }
+
+        function afficherCategories() {
+            const select = document.getElementById("filtre-cat");
+            const selectModal = document.getElementById("produit-categorie");
+            categories.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.nom}</option>`;
+                selectModal.innerHTML += `<option value="${c.id}">${c.nom}</option>`;
+            });
+        }
+
+        function filtrer() {
+            afficherProduits();
+        }
+
+        function afficherProduits() {
+            const search = document.getElementById("search").value.toLowerCase();
+            const cat = document.getElementById("filtre-cat").value;
+            const tbody = document.getElementById("produits-tbody");
+            let liste = produits.filter(p => {
+                const matchSearch = p.nom.toLowerCase().includes(search);
+                const matchCat = cat ? p.categorie_id == cat : true;
+                return matchSearch && matchCat;
+            });
+            tbody.innerHTML = liste.map(p => `
+                <tr>
+                    <td>${p.nom}</td>
+                    <td>${p.categorie_nom || "-"}</td>
+                    <td>${p.prix.toLocaleString("fr-FR")} FCFA</td>
+                    <td>${p.stock}</td>
+                    <td>
+                        <span class="badge ${p.stock <= 0 ? 'badge-red' : p.stock <= p.stock_alerte ? 'badge-orange' : 'badge-green'}">
+                            ${p.stock <= 0 ? 'Rupture' : p.stock <= p.stock_alerte ? 'Stock bas' : 'OK'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn-edit" onclick="editer(${p.id})">✏️</button>
+                        <button class="btn-delete" onclick="supprimer(${p.id})">🗑️</button>
+                    </td>
+                </tr>
+            `).join("");
+        }
+
+        function ouvrirModal() {
+            document.getElementById("modal-titre").textContent = "Ajouter un produit";
+            document.getElementById("produit-id").value = "";
+            document.getElementById("produit-nom").value = "";
+            document.getElementById("produit-prix").value = "";
+            document.getElementById("produit-stock").value = "";
+            document.getElementById("produit-alerte").value = "5";
+            document.getElementById("modal").classList.remove("hidden");
+        }
+
+        function fermerModal() {
+            document.getElementById("modal").classList.add("hidden");
+        }
+
+        function editer(id) {
+            const p = produits.find(p => p.id === id);
+            document.getElementById("modal-titre").textContent = "Modifier le produit";
+            document.getElementById("produit-id").value = p.id;
+            document.getElementById("produit-nom").value = p.nom;
+            document.getElementById("produit-prix").value = p.prix;
+            document.getElementById("produit-stock").value = p.stock;
+            document.getElementById("produit-alerte").value = p.stock_alerte;
+            document.getElementById("produit-categorie").value = p.categorie_id;
+            document.getElementById("modal").classList.remove("hidden");
+        }
+
+        async function sauvegarder() {
+            const id = document.getElementById("produit-id").value;
+            const data = {
+                nom: document.getElementById("produit-nom").value,
+                prix: parseFloat(document.getElementById("produit-prix").value),
+                stock: parseInt(document.getElementById("produit-stock").value) || 0,
+                stock_alerte: parseInt(document.getElementById("produit-alerte").value) || 5,
+                categorie_id: parseInt(document.getElementById("produit-categorie").value) || null
+            };
+            if (id) {
+                await fetch(`/api/produits/${id}`, { method: "PUT",
+                    headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+            } else {
+                await fetch("/api/produits", { method: "POST",
+                    headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+            }
+            fermerModal();
+            charger();
+        }
+
+        async function supprimer(id) {
+            if (!confirm("Supprimer ce produit ?")) return;
+            await fetch(`/api/produits/${id}`, { method: "DELETE" });
+            charger();
+        }
+
+        charger();
+    </script>
+</body>
+</html>
