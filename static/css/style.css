@@ -585,3 +585,55 @@ body {
     cursor: pointer;
     font-size: 0.85rem;
 }
+
+/* ─── RAPPORT JOURNALIER ─────────────────────────────────── */
+.report-header {
+    gap: 14px;
+}
+
+.report-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.report-date-input {
+    width: 180px;
+}
+
+.report-tags {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+@media print {
+    .sidebar,
+    .no-print,
+    .report-actions {
+        display: none !important;
+    }
+
+    .app {
+        display: block;
+        height: auto;
+    }
+
+    .main {
+        padding: 0;
+        color: #111;
+        background: #fff;
+    }
+
+    .card,
+    .stat-card {
+        border-color: #d1d5db;
+        background: #fff;
+    }
+
+    .stat-label,
+    .table th,
+    .table td {
+        color: #111;
+    }
+}

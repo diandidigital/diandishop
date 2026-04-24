@@ -22,6 +22,7 @@
                 <a href="/pos" class="nav-item active">💰 Caisse</a>
                 {% if is_admin %}
                 <a href="/produits" class="nav-item">📦 Produits</a>
+                <a href="/rapport-journalier" class="nav-item">📑 Rapport</a>
                 <a href="/stock" class="nav-item">⚠️ Stock</a>
                 <a href="/register" class="nav-item">👤 Utilisateurs</a>
                 {% endif %}
@@ -100,7 +101,10 @@
         <div class="modal-content">
             <h3>✅ Vente enregistrée !</h3>
             <p id="modal-message"></p>
-            <button class="btn-encaisser" onclick="fermerModal()">Nouvelle vente</button>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="imprimerTicket()">🖨️ Imprimer ticket</button>
+                <button class="btn-secondary" onclick="fermerModal()">Nouvelle vente</button>
+            </div>
         </div>
     </div>
 
@@ -110,6 +114,7 @@
         let panier = [];
         let paiement = "especes";
         let categorieActive = null;
+        let dernierTicket = null;
 
         // Charger données
         async function charger() {
@@ -260,6 +265,14 @@
                 return alert(result.message || "Impossible d'enregistrer la vente.");
             }
 
+            const ticketRes = await fetch(`/api/ventes/${result.vente_id}/ticket`);
+            const ticketPayload = await ticketRes.json();
+            if (ticketRes.ok && ticketPayload.success) {
+                dernierTicket = ticketPayload;
+            } else {
+                dernierTicket = null;
+            }
+
             const operateurLibelles = {
                 orange: "Orange Money CI",
                 mtn: "MTN MoMo CI",
@@ -269,11 +282,96 @@
                 ? `Mobile Money (${operateurLibelles[mobileOperateur] || mobileOperateur})`
                 : "Espèces";
             document.getElementById("modal-message").textContent = 
-                `Total : ${total.toLocaleString("fr-FR")} FCFA — Paiement : ${paiementLabel}`;
+                `Ticket #${result.vente_id} - Total : ${total.toLocaleString("fr-FR")} FCFA - Paiement : ${paiementLabel}`;
             document.getElementById("modal").classList.remove("hidden");
             viderPanier();
             document.getElementById("mobile-reference").value = "";
             charger();
+        }
+
+        function echapperHtml(txt) {
+            return String(txt || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function imprimerTicket() {
+            if (!dernierTicket || !dernierTicket.vente) {
+                alert("Ticket indisponible pour cette vente.");
+                return;
+            }
+
+            const vente = dernierTicket.vente;
+            const items = dernierTicket.items || [];
+            const operateurLibelles = {
+                orange: "Orange Money CI",
+                mtn: "MTN MoMo CI",
+                moov: "Moov Money CI"
+            };
+            const paiementLabel = vente.paiement === "mobile"
+                ? `${operateurLibelles[vente.mobile_operateur] || "Mobile Money"}${vente.mobile_reference ? ` (${echapperHtml(vente.mobile_reference)})` : ""}`
+                : "Espèces";
+
+            const lignes = items.map(i => `
+                <tr>
+                    <td>${echapperHtml(i.nom_produit)}</td>
+                    <td>${Number(i.quantite)}</td>
+                    <td>${Number(i.prix_unitaire).toLocaleString("fr-FR")}</td>
+                    <td>${Number(i.sous_total).toLocaleString("fr-FR")}</td>
+                </tr>
+            `).join("");
+
+            const html = `
+                <!DOCTYPE html>
+                <html lang="fr">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Ticket #${vente.id}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 16px; color: #111; }
+                        h2 { margin: 0 0 6px 0; font-size: 18px; }
+                        .meta { margin: 3px 0; font-size: 12px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                        th, td { border-bottom: 1px solid #ddd; padding: 6px; font-size: 12px; text-align: left; }
+                        .right { text-align: right; }
+                        .total { margin-top: 10px; font-weight: 700; text-align: right; }
+                        .footer { margin-top: 16px; font-size: 11px; text-align: center; color: #666; }
+                    </style>
+                </head>
+                <body>
+                    <h2>DiandiShop</h2>
+                    <div class="meta">Ticket #${vente.id}</div>
+                    <div class="meta">Date: ${echapperHtml(vente.date_vente || "")}</div>
+                    <div class="meta">Paiement: ${paiementLabel}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Qté</th>
+                                <th>PU</th>
+                                <th class="right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>${lignes}</tbody>
+                    </table>
+                    <div class="total">TOTAL: ${Number(vente.total).toLocaleString("fr-FR")} FCFA</div>
+                    <div class="footer">Merci pour votre achat.</div>
+                </body>
+                </html>
+            `;
+
+            const win = window.open("", "_blank");
+            if (!win) {
+                alert("Impossible d'ouvrir la fenêtre d'impression.");
+                return;
+            }
+            win.document.write(html);
+            win.document.close();
+            win.focus();
+            win.print();
         }
 
         function fermerModal() {

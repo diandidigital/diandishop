@@ -386,6 +386,12 @@ def produits():
 def stock():
     return render_template("stock.html")
 
+
+@app.route("/rapport-journalier")
+@role_required("admin")
+def rapport_journalier():
+    return render_template("rapport_journalier.html")
+
 # ─── API CATEGORIES ─────────────────────────────────────────
 @app.route("/api/categories", methods=["GET"])
 @role_required("admin", "caissiere")
@@ -499,6 +505,43 @@ def get_ventes():
     conn.close()
     return jsonify([dict(v) for v in ventes])
 
+
+@app.route("/api/ventes/<int:vente_id>/ticket", methods=["GET"])
+@role_required("admin", "caissiere")
+def get_vente_ticket(vente_id):
+    conn = get_db()
+    vente = conn.execute(
+        """
+        SELECT id, total, paiement, mobile_operateur, mobile_reference, monnaie, date_vente
+        FROM ventes
+        WHERE id = ?
+        """,
+        (vente_id,),
+    ).fetchone()
+
+    if not vente:
+        conn.close()
+        return jsonify({"success": False, "message": "Vente introuvable."}), 404
+
+    items = conn.execute(
+        """
+        SELECT nom_produit, prix_unitaire, quantite, sous_total
+        FROM vente_items
+        WHERE vente_id = ?
+        ORDER BY id ASC
+        """,
+        (vente_id,),
+    ).fetchall()
+    conn.close()
+
+    return jsonify(
+        {
+            "success": True,
+            "vente": dict(vente),
+            "items": [dict(i) for i in items],
+        }
+    )
+
 @app.route("/api/ventes", methods=["POST"])
 @role_required("admin", "caissiere")
 def add_vente():
@@ -531,8 +574,20 @@ def add_vente():
             UPDATE produits SET stock = stock - ? WHERE id = ?
         """, (item["quantite"], item["produit_id"]))
     conn.commit()
+
+    created = conn.execute(
+        "SELECT id, date_vente FROM ventes WHERE id = ?",
+        (vente_id,),
+    ).fetchone()
+
     conn.close()
-    return jsonify({"success": True, "vente_id": vente_id})
+    return jsonify(
+        {
+            "success": True,
+            "vente_id": vente_id,
+            "date_vente": created["date_vente"] if created else None,
+        }
+    )
 
 # ─── API DASHBOARD ───────────────────────────────────────────
 @app.route("/api/dashboard", methods=["GET"])
@@ -566,6 +621,92 @@ def get_dashboard():
         "alertes_stock": alertes["nb"],
         "ventes_semaine": [dict(v) for v in ventes_semaine]
     })
+
+
+@app.route("/api/rapport/journalier", methods=["GET"])
+@role_required("admin")
+def get_rapport_journalier():
+    date_param = (request.args.get("date") or "").strip()
+    if not date_param:
+        date_param = datetime.now().strftime("%Y-%m-%d")
+
+    conn = get_db()
+
+    stats = conn.execute(
+        """
+        SELECT
+            COUNT(*) as nb_ventes,
+            COALESCE(SUM(total), 0) as total_jour,
+            COALESCE(SUM(CASE WHEN paiement = 'mobile' THEN total ELSE 0 END), 0) as total_mobile,
+            COALESCE(SUM(CASE WHEN paiement = 'especes' THEN total ELSE 0 END), 0) as total_especes
+        FROM ventes
+        WHERE date(date_vente) = ?
+        """,
+        (date_param,),
+    ).fetchone()
+
+    repartition_mobile = conn.execute(
+        """
+        SELECT
+            COALESCE(mobile_operateur, 'inconnu') as operateur,
+            COUNT(*) as nb,
+            COALESCE(SUM(total), 0) as total
+        FROM ventes
+        WHERE date(date_vente) = ?
+          AND paiement = 'mobile'
+        GROUP BY COALESCE(mobile_operateur, 'inconnu')
+        """,
+        (date_param,),
+    ).fetchall()
+
+    ventes = conn.execute(
+        """
+        SELECT
+            v.id,
+            v.total,
+            v.paiement,
+            v.mobile_operateur,
+            v.mobile_reference,
+            v.monnaie,
+            v.date_vente,
+            COALESCE(SUM(vi.quantite), 0) as total_articles
+        FROM ventes v
+        LEFT JOIN vente_items vi ON vi.vente_id = v.id
+        WHERE date(v.date_vente) = ?
+        GROUP BY v.id
+        ORDER BY v.date_vente DESC
+        """,
+        (date_param,),
+    ).fetchall()
+
+    top_produits = conn.execute(
+        """
+        SELECT
+            vi.nom_produit,
+            SUM(vi.quantite) as quantite,
+            SUM(vi.sous_total) as montant
+        FROM vente_items vi
+        JOIN ventes v ON v.id = vi.vente_id
+        WHERE date(v.date_vente) = ?
+        GROUP BY vi.nom_produit
+        ORDER BY quantite DESC
+        LIMIT 5
+        """,
+        (date_param,),
+    ).fetchall()
+
+    conn.close()
+
+    return jsonify(
+        {
+            "success": True,
+            "date": date_param,
+            "stats": dict(stats),
+            "repartition_mobile": [dict(r) for r in repartition_mobile],
+            "ventes": [dict(v) for v in ventes],
+            "top_produits": [dict(t) for t in top_produits],
+        }
+    )
 
 
 def _seed_catalog(conn):
