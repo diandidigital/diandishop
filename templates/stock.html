@@ -34,6 +34,11 @@
         <main class="main">
             <div class="header">
                 <h1>Gestion du Stock</h1>
+                <div class="stock-view-switch">
+                    <button id="btn-view-grid" class="btn-view active" onclick="setViewMode('grid')">Grille</button>
+                    <button id="btn-view-line" class="btn-view" onclick="setViewMode('line')">Ligne</button>
+                    <button id="btn-view-compact" class="btn-view" onclick="setViewMode('compact')">Compact</button>
+                </div>
             </div>
 
             <!-- Résumé -->
@@ -61,21 +66,37 @@
                 </div>
             </div>
 
-            <!-- Tableau stock -->
+            <!-- Cartes stock -->
             <div class="card">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Produit</th>
-                            <th>Catégorie</th>
-                            <th>Stock actuel</th>
-                            <th>Seuil alerte</th>
-                            <th>Statut</th>
-                            <th>Réapprovisionner</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stock-tbody"></tbody>
-                </table>
+                <div id="stock-grid" class="stock-grid"></div>
+                <div id="stock-line" class="stock-line hidden">
+                    <table class="table stock-line-table">
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Catégorie</th>
+                                <th>Stock</th>
+                                <th>Progression</th>
+                                <th>Statut</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-line-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="stock-compact" class="stock-compact hidden">
+                    <table class="table stock-compact-table">
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Stock</th>
+                                <th>Jauge</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-compact-tbody"></tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
@@ -100,37 +121,154 @@
 
     <script>
         let produits = [];
+        let viewMode = localStorage.getItem("stock-view-mode") || "grid";
 
         async function charger() {
             produits = await fetch("/api/produits").then(r => r.json());
             afficherStock();
+            setViewMode(viewMode, false);
+        }
+
+        function setViewMode(mode, persist = true) {
+            viewMode = ["grid", "line", "compact"].includes(mode) ? mode : "grid";
+            document.getElementById("stock-grid").classList.toggle("hidden", viewMode !== "grid");
+            document.getElementById("stock-line").classList.toggle("hidden", viewMode !== "line");
+            document.getElementById("stock-compact").classList.toggle("hidden", viewMode !== "compact");
+            document.getElementById("btn-view-grid").classList.toggle("active", viewMode === "grid");
+            document.getElementById("btn-view-line").classList.toggle("active", viewMode === "line");
+            document.getElementById("btn-view-compact").classList.toggle("active", viewMode === "compact");
+            if (persist) localStorage.setItem("stock-view-mode", viewMode);
+        }
+
+        function echapperTexte(texte) {
+            return String(texte || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function echapperPourJs(texte) {
+            return String(texte || "")
+                .replace(/\\/g, "\\\\")
+                .replace(/'/g, "\\'");
         }
 
         function afficherStock() {
-            const tbody = document.getElementById("stock-tbody");
+            const grid = document.getElementById("stock-grid");
+            const lineBody = document.getElementById("stock-line-tbody");
+            const compactBody = document.getElementById("stock-compact-tbody");
             let nbOk = 0, nbBas = 0, nbRupture = 0;
 
-            tbody.innerHTML = produits.map(p => {
-                let statut, badgeClass;
+            grid.innerHTML = produits.map(p => {
+                let statut, cardClass, progressClass;
                 if (p.stock <= 0) {
-                    statut = "Rupture"; badgeClass = "badge-red"; nbRupture++;
+                    statut = "Rupture";
+                    cardClass = "rupture";
+                    progressClass = "danger";
+                    nbRupture++;
                 } else if (p.stock <= p.stock_alerte) {
-                    statut = "Stock bas"; badgeClass = "badge-orange"; nbBas++;
+                    statut = "Stock bas";
+                    cardClass = "bas";
+                    progressClass = "warning";
+                    nbBas++;
                 } else {
-                    statut = "OK"; badgeClass = "badge-green"; nbOk++;
+                    statut = "Stock OK";
+                    cardClass = "ok";
+                    progressClass = "ok";
+                    nbOk++;
                 }
+
+                const cible = Math.max((p.stock_alerte || 5) * 4, 10);
+                const progress = Math.max(0, Math.min(100, Math.round((p.stock / cible) * 100)));
+                const nom = echapperTexte(p.nom);
+                const categorie = echapperTexte(p.categorie_nom || "-");
+                const nomJs = echapperPourJs(p.nom);
+
+                return `
+                    <div class="stock-item-card ${cardClass}">
+                        <div class="stock-item-head">
+                            <div>
+                                <div class="stock-item-name">${nom}</div>
+                                <div class="stock-item-cat">${categorie}</div>
+                            </div>
+                            <button class="btn-reappro" onclick="ouvrirReappro(${p.id}, '${nomJs}')">+ Réappro</button>
+                        </div>
+                        <div class="stock-progress-track">
+                            <div class="stock-progress-fill ${progressClass}" style="width:${progress}%"></div>
+                        </div>
+                        <div class="stock-item-foot">
+                            <span class="stock-item-qte">${p.stock} unités</span>
+                            <span class="stock-item-status ${progressClass}">${statut}</span>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            lineBody.innerHTML = produits.map(p => {
+                let statut, progressClass;
+                if (p.stock <= 0) {
+                    statut = "Rupture";
+                    progressClass = "danger";
+                } else if (p.stock <= p.stock_alerte) {
+                    statut = "Stock bas";
+                    progressClass = "warning";
+                } else {
+                    statut = "Stock OK";
+                    progressClass = "ok";
+                }
+
+                const cible = Math.max((p.stock_alerte || 5) * 4, 10);
+                const progress = Math.max(0, Math.min(100, Math.round((p.stock / cible) * 100)));
+                const nom = echapperTexte(p.nom);
+                const categorie = echapperTexte(p.categorie_nom || "-");
+                const nomJs = echapperPourJs(p.nom);
+
                 return `
                     <tr>
-                        <td>${p.nom}</td>
-                        <td>${p.categorie_nom || "-"}</td>
-                        <td><strong>${p.stock}</strong></td>
-                        <td>${p.stock_alerte}</td>
-                        <td><span class="badge ${badgeClass}">${statut}</span></td>
+                        <td>${nom}</td>
+                        <td>${categorie}</td>
+                        <td><strong>${p.stock}</strong> unités</td>
                         <td>
-                            <button class="btn-primary btn-sm" 
-                                onclick="ouvrirReappro(${p.id}, '${p.nom.replace(/'/g, "\\'")}')">
-                                + Réappro
-                            </button>
+                            <div class="stock-progress-track inline">
+                                <div class="stock-progress-fill ${progressClass}" style="width:${progress}%"></div>
+                            </div>
+                        </td>
+                        <td><span class="stock-item-status ${progressClass}">${statut}</span></td>
+                        <td>
+                            <button class="btn-reappro" onclick="ouvrirReappro(${p.id}, '${nomJs}')">+ Réappro</button>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+
+            compactBody.innerHTML = produits.map(p => {
+                let progressClass;
+                if (p.stock <= 0) {
+                    progressClass = "danger";
+                } else if (p.stock <= p.stock_alerte) {
+                    progressClass = "warning";
+                } else {
+                    progressClass = "ok";
+                }
+
+                const cible = Math.max((p.stock_alerte || 5) * 4, 10);
+                const progress = Math.max(0, Math.min(100, Math.round((p.stock / cible) * 100)));
+                const nom = echapperTexte(p.nom);
+                const nomJs = echapperPourJs(p.nom);
+
+                return `
+                    <tr>
+                        <td>${nom}</td>
+                        <td><strong>${p.stock}</strong></td>
+                        <td>
+                            <div class="stock-progress-track inline compact">
+                                <div class="stock-progress-fill ${progressClass}" style="width:${progress}%"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn-reappro compact" onclick="ouvrirReappro(${p.id}, '${nomJs}')">+ Réappro</button>
                         </td>
                     </tr>
                 `;

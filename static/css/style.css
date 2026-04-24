@@ -586,6 +586,166 @@ body {
     font-size: 0.85rem;
 }
 
+/* ─── STOCK CARDS ───────────────────────────────────────── */
+.stock-view-switch {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-view {
+    padding: 8px 12px;
+    border-radius: 9px;
+    border: 1px solid #2d3148;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.btn-view.active {
+    background: #22c55e20;
+    color: #22c55e;
+    border-color: #22c55e;
+}
+
+.stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.stock-line-table td {
+    vertical-align: middle;
+}
+
+.stock-compact-table td,
+.stock-compact-table th {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+
+.stock-item-card {
+    background: #151924;
+    border: 1px solid #2d3148;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stock-item-card.ok {
+    border-color: #2d3148;
+}
+
+.stock-item-card.bas {
+    border-color: #f59e0b80;
+}
+
+.stock-item-card.rupture {
+    border-color: #ef444480;
+}
+
+.stock-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.stock-item-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #f9fafb;
+}
+
+.stock-item-cat {
+    color: #9ca3af;
+    font-size: 0.82rem;
+}
+
+.btn-reappro {
+    background: #22c55e20;
+    color: #22c55e;
+    border: 1px solid #22c55e66;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.btn-reappro.compact {
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+}
+
+.stock-progress-track {
+    height: 8px;
+    background: #2d3148;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.stock-progress-track.inline {
+    width: 180px;
+}
+
+.stock-progress-track.inline.compact {
+    width: 130px;
+    height: 6px;
+}
+
+.stock-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.stock-progress-fill.ok {
+    background: #16a34a;
+}
+
+.stock-progress-fill.warning {
+    background: #f59e0b;
+}
+
+.stock-progress-fill.danger {
+    background: #ef4444;
+}
+
+.stock-item-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stock-item-qte {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f3f4f6;
+}
+
+.stock-item-status {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.stock-item-status.ok {
+    color: #22c55e;
+}
+
+.stock-item-status.warning {
+    color: #f59e0b;
+}
+
+.stock-item-status.danger {
+    color: #ef4444;
+}
+
 /* ─── RAPPORT JOURNALIER ─────────────────────────────────── */
 .report-header {
     gap: 14px;
