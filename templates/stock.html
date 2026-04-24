@@ -17,7 +17,10 @@
             </div>
             <nav class="sidebar-nav">
                 <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+                <a href="/dashboard-patron" class="nav-item">👑 Dashboard Patron</a>
                 <a href="/pos" class="nav-item">💰 Caisse</a>
+                <a href="/caisse-historique" class="nav-item">📜 Historique Caisse</a>
+                <a href="/fournisseurs-achats" class="nav-item">🏭 Fournisseurs & Achats</a>
                 <a href="/rapport-journalier" class="nav-item">📑 Rapport</a>
                 <a href="/produits" class="nav-item">📦 Produits</a>
                 <a href="/stock" class="nav-item active">⚠️ Stock</a>
@@ -64,6 +67,11 @@
                         <span class="stat-value" id="nb-rupture">0</span>
                     </div>
                 </div>
+            </div>
+
+            <div class="card">
+                <h3>Alertes intelligentes</h3>
+                <div id="smart-alerts" class="report-tags"></div>
             </div>
 
             <!-- Cartes stock -->
@@ -124,9 +132,39 @@
         let viewMode = localStorage.getItem("stock-view-mode") || "grid";
 
         async function charger() {
-            produits = await fetch("/api/produits").then(r => r.json());
+            const [pData, smartData] = await Promise.all([
+                fetch("/api/produits").then(r => r.json()),
+                fetch("/api/stock/alertes").then(r => r.json())
+            ]);
+            produits = pData;
             afficherStock();
             setViewMode(viewMode, false);
+            afficherAlertesIntelligentes(smartData);
+        }
+
+        function afficherAlertesIntelligentes(data) {
+            const box = document.getElementById("smart-alerts");
+            if (!data || !data.success) {
+                box.innerHTML = '<span class="badge badge-red">Impossible de charger les alertes intelligentes</span>';
+                return;
+            }
+
+            const tags = [];
+            if (data.ruptures.length) {
+                tags.push(`<span class="badge badge-red">Ruptures: ${data.ruptures.length}</span>`);
+            }
+            if (data.stock_bas.length) {
+                tags.push(`<span class="badge badge-orange">Stock bas: ${data.stock_bas.length}</span>`);
+            }
+            if (data.suggestions.length) {
+                data.suggestions.slice(0, 5).forEach(s => {
+                    tags.push(`<span class="badge badge-green">Commander ${s.a_commander}x ${s.nom}</span>`);
+                });
+            }
+            if (!tags.length) {
+                tags.push('<span class="badge badge-green">Aucune alerte critique aujourd\'hui</span>');
+            }
+            box.innerHTML = tags.join(' ');
         }
 
         function setViewMode(mode, persist = true) {

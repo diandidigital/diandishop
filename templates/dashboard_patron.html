@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>DiandiShop - Dashboard Patron</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-logo"><h2>🛒 DiandiShop</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+                <a href="/dashboard-patron" class="nav-item active">👑 Dashboard Patron</a>
+                <a href="/pos" class="nav-item">💰 Caisse</a>
+                <a href="/caisse-historique" class="nav-item">📜 Historique Caisse</a>
+                <a href="/fournisseurs-achats" class="nav-item">🏭 Fournisseurs & Achats</a>
+                <a href="/rapport-journalier" class="nav-item">📑 Rapport</a>
+                <a href="/produits" class="nav-item">📦 Produits</a>
+                <a href="/stock" class="nav-item">⚠️ Stock</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="user-name">{{ auth_user }}</div>
+                <div class="user-role">{{ auth_role }}</div>
+                <a href="/logout" class="nav-item logout-link">Se deconnecter</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="header">
+                <h1>Dashboard Patron</h1>
+                <div class="report-actions">
+                    <input type="date" id="d1" class="input report-date-input">
+                    <input type="date" id="d2" class="input report-date-input">
+                    <button class="btn-primary" onclick="charger()">Actualiser</button>
+                    <button class="btn-secondary" onclick="window.print()">Imprimer</button>
+                    <button class="btn-secondary" onclick="partager()">Partager lien</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon">💼</div><div class="stat-info"><span class="stat-label">CA</span><span class="stat-value" id="kpi-ca">0 FCFA</span></div></div>
+                <div class="stat-card"><div class="stat-icon">🧾</div><div class="stat-info"><span class="stat-label">Dépenses</span><span class="stat-value" id="kpi-dep">0 FCFA</span></div></div>
+                <div class="stat-card"><div class="stat-icon">🏭</div><div class="stat-info"><span class="stat-label">Achats</span><span class="stat-value" id="kpi-ach">0 FCFA</span></div></div>
+                <div class="stat-card alert"><div class="stat-icon">📈</div><div class="stat-info"><span class="stat-label">Bénéfice net</span><span class="stat-value" id="kpi-ben">0 FCFA</span></div></div>
+            </div>
+
+            <div class="card">
+                <h3>Répartition paiements</h3>
+                <div id="paiements-tags" class="report-tags"></div>
+            </div>
+
+            <div class="card">
+                <h3>Ventes par caissier</h3>
+                <table class="table">
+                    <thead><tr><th>Caissier</th><th>Ventes</th><th>Total</th></tr></thead>
+                    <tbody id="caissiers-tbody"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Top produits rentables (estimé)</h3>
+                <table class="table">
+                    <thead><tr><th>Produit</th><th>Quantité</th><th>Chiffre</th><th>Marge</th></tr></thead>
+                    <tbody id="rentables-tbody"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Heures de pic</h3>
+                <div id="heures-tags" class="report-tags"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function formatFCFA(v) { return Number(v || 0).toLocaleString('fr-FR') + ' FCFA'; }
+
+        function partager() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => alert('Lien copié')).catch(() => alert(url));
+        }
+
+        async function charger() {
+            const d1 = document.getElementById('d1').value;
+            const d2 = document.getElementById('d2').value;
+            const query = `?date_debut=${d1}&date_fin=${d2}`;
+            const res = await fetch('/api/dashboard/patron' + query);
+            const data = await res.json();
+            if (!res.ok || !data.success) return alert('Erreur dashboard patron');
+
+            document.getElementById('kpi-ca').textContent = formatFCFA(data.kpis.ca);
+            document.getElementById('kpi-dep').textContent = formatFCFA(data.kpis.depenses);
+            document.getElementById('kpi-ach').textContent = formatFCFA(data.kpis.achats);
+            document.getElementById('kpi-ben').textContent = formatFCFA(data.kpis.benefice_net);
+
+            document.getElementById('paiements-tags').innerHTML = data.paiements.map(p =>
+                `<span class="badge badge-green">${p.paiement}: ${p.nb} (${formatFCFA(p.total)})</span>`
+            ).join(' ');
+
+            document.getElementById('caissiers-tbody').innerHTML = data.ventes_par_caissier.map(r => `
+                <tr><td>${r.caissier || '-'}</td><td>${r.nb}</td><td>${formatFCFA(r.total)}</td></tr>
+            `).join('');
+
+            document.getElementById('rentables-tbody').innerHTML = data.top_rentables.map(r => `
+                <tr><td>${r.nom_produit}</td><td>${r.quantite}</td><td>${formatFCFA(r.chiffre)}</td><td>${formatFCFA(r.marge_estimee)}</td></tr>
+            `).join('');
+
+            document.getElementById('heures-tags').innerHTML = data.heures_pic.map(h =>
+                `<span class="badge badge-orange">${h.heure}h : ${h.nb} ventes</span>`
+            ).join(' ');
+        }
+
+        const today = new Date();
+        const d2 = today.toISOString().slice(0, 10);
+        const d1Date = new Date(today.getTime() - 30 * 24 * 3600 * 1000);
+        const d1 = d1Date.toISOString().slice(0, 10);
+        document.getElementById('d1').value = d1;
+        document.getElementById('d2').value = d2;
+        charger();
+    </script>
+</body>
+</html>

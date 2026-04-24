@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/logo192.png">
+    <title>DiandiShop - Fournisseurs & Achats</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <h2>🛒 DiandiShop</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-item">📊 Dashboard</a>
+                <a href="/dashboard-patron" class="nav-item">👑 Dashboard Patron</a>
+                <a href="/pos" class="nav-item">💰 Caisse</a>
+                <a href="/caisse-historique" class="nav-item">📜 Historique Caisse</a>
+                <a href="/fournisseurs-achats" class="nav-item active">🏭 Fournisseurs & Achats</a>
+                <a href="/rapport-journalier" class="nav-item">📑 Rapport</a>
+                <a href="/produits" class="nav-item">📦 Produits</a>
+                <a href="/stock" class="nav-item">⚠️ Stock</a>
+                <a href="/register" class="nav-item">👤 Utilisateurs</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="user-name">{{ auth_user }}</div>
+                <div class="user-role">{{ auth_role }}</div>
+                <a href="/logout" class="nav-item logout-link">Se deconnecter</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="header">
+                <h1>Fournisseurs & Achats</h1>
+                <a href="/api/export/achats.csv" class="btn-secondary">Export CSV Achats</a>
+            </div>
+
+            <div class="card">
+                <h3>Ajouter un fournisseur</h3>
+                <div class="filters">
+                    <input id="f-nom" class="input" placeholder="Nom fournisseur">
+                    <input id="f-contact" class="input" placeholder="Contact">
+                    <input id="f-tel" class="input" placeholder="Téléphone">
+                    <button class="btn-primary" onclick="ajouterFournisseur()">Ajouter</button>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Contact</th>
+                            <th>Téléphone</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fournisseurs-tbody"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Enregistrer un achat</h3>
+                <div class="filters">
+                    <select id="a-fournisseur" class="input"></select>
+                    <input id="a-reference" class="input" placeholder="Référence facture">
+                    <button class="btn-secondary" onclick="ajouterLigneAchat()">+ Ligne</button>
+                    <button class="btn-primary" onclick="enregistrerAchat()">Valider achat</button>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Quantité</th>
+                            <th>Prix achat</th>
+                            <th>Sous-total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="achat-lignes-tbody"></tbody>
+                </table>
+                <div class="panier-total">
+                    <span>Total achat</span>
+                    <span id="achat-total">0 FCFA</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Historique des achats</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Fournisseur</th>
+                            <th>Référence</th>
+                            <th>Articles</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="achats-tbody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let fournisseurs = [];
+        let produits = [];
+        let achatLignes = [];
+
+        function formatFCFA(v) {
+            return Number(v || 0).toLocaleString("fr-FR") + " FCFA";
+        }
+
+        async function charger() {
+            const [fData, pData, aData] = await Promise.all([
+                fetch('/api/fournisseurs').then(r => r.json()),
+                fetch('/api/produits').then(r => r.json()),
+                fetch('/api/achats').then(r => r.json())
+            ]);
+            fournisseurs = fData;
+            produits = pData;
+            afficherFournisseurs();
+            afficherAchats(aData);
+            afficherLignesAchat();
+        }
+
+        function afficherFournisseurs() {
+            const tbody = document.getElementById('fournisseurs-tbody');
+            const select = document.getElementById('a-fournisseur');
+            select.innerHTML = '<option value="">Sans fournisseur</option>';
+            fournisseurs.forEach(f => {
+                select.innerHTML += `<option value="${f.id}">${f.nom}</option>`;
+            });
+            tbody.innerHTML = fournisseurs.map(f => `
+                <tr>
+                    <td>${f.nom}</td>
+                    <td>${f.contact || '-'}</td>
+                    <td>${f.telephone || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function afficherAchats(rows) {
+            const tbody = document.getElementById('achats-tbody');
+            tbody.innerHTML = rows.map(a => `
+                <tr>
+                    <td>${a.date_achat}</td>
+                    <td>${a.fournisseur_nom || '-'}</td>
+                    <td>${a.reference || '-'}</td>
+                    <td>${a.total_articles}</td>
+                    <td>${formatFCFA(a.total)}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function ajouterFournisseur() {
+            const data = {
+                nom: document.getElementById('f-nom').value.trim(),
+                contact: document.getElementById('f-contact').value.trim(),
+                telephone: document.getElementById('f-tel').value.trim()
+            };
+            if (!data.nom) return alert('Nom requis');
+            const res = await fetch('/api/fournisseurs', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) return alert('Erreur lors de l\'ajout fournisseur');
+            document.getElementById('f-nom').value = '';
+            document.getElementById('f-contact').value = '';
+            document.getElementById('f-tel').value = '';
+            charger();
+        }
+
+        function ajouterLigneAchat() {
+            if (!produits.length) return;
+            const p = produits[0];
+            achatLignes.push({produit_id: p.id, quantite: 1, prix_achat: p.prix || 0});
+            afficherLignesAchat();
+        }
+
+        function updateLigne(index, key, value) {
+            achatLignes[index][key] = key === 'produit_id' ? Number(value) : Number(value || 0);
+            afficherLignesAchat();
+        }
+
+        function removeLigne(index) {
+            achatLignes.splice(index, 1);
+            afficherLignesAchat();
+        }
+
+        function afficherLignesAchat() {
+            const tbody = document.getElementById('achat-lignes-tbody');
+            tbody.innerHTML = achatLignes.map((l, i) => {
+                const produitOptions = produits.map(p => `<option value="${p.id}" ${p.id === l.produit_id ? 'selected' : ''}>${p.nom}</option>`).join('');
+                const sousTotal = (l.quantite || 0) * (l.prix_achat || 0);
+                return `
+                    <tr>
+                        <td><select class="input" onchange="updateLigne(${i}, 'produit_id', this.value)">${produitOptions}</select></td>
+                        <td><input type="number" min="1" class="input" value="${l.quantite}" onchange="updateLigne(${i}, 'quantite', this.value)"></td>
+                        <td><input type="number" min="1" class="input" value="${l.prix_achat}" onchange="updateLigne(${i}, 'prix_achat', this.value)"></td>
+                        <td>${formatFCFA(sousTotal)} <button class="btn-delete" onclick="removeLigne(${i})">x</button></td>
+                    </tr>
+                `;
+            }).join('');
+            const total = achatLignes.reduce((s, l) => s + (l.quantite || 0) * (l.prix_achat || 0), 0);
+            document.getElementById('achat-total').textContent = formatFCFA(total);
+        }
+
+        async function enregistrerAchat() {
+            if (!achatLignes.length) return alert('Ajoute au moins une ligne achat');
+            const payload = {
+                fournisseur_id: Number(document.getElementById('a-fournisseur').value) || null,
+                reference: document.getElementById('a-reference').value.trim(),
+                items: achatLignes
+            };
+            const res = await fetch('/api/achats', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (!res.ok || !result.success) return alert(result.message || 'Erreur achat');
+            achatLignes = [];
+            document.getElementById('a-reference').value = '';
+            charger();
+        }
+
+        charger();
+    </script>
+</body>
+</html>
