@@ -62,6 +62,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS produits (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nom TEXT NOT NULL,
+                code_barres TEXT,
                 prix REAL NOT NULL,
                 stock INTEGER DEFAULT 0,
                 stock_alerte INTEGER DEFAULT 5,
@@ -74,6 +75,8 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 total REAL NOT NULL,
                 paiement TEXT DEFAULT 'especes',
+                mobile_operateur TEXT,
+                mobile_reference TEXT,
                 monnaie REAL DEFAULT 0,
                 date_vente TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -100,6 +103,25 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_produits_code_barres ON produits(code_barres) WHERE code_barres IS NOT NULL AND code_barres <> ''")
+
+        existing_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(produits)").fetchall()
+        }
+        if "code_barres" not in existing_columns:
+            cursor.execute("ALTER TABLE produits ADD COLUMN code_barres TEXT")
+
+        existing_sales_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(ventes)").fetchall()
+        }
+        if "mobile_operateur" not in existing_sales_columns:
+            cursor.execute("ALTER TABLE ventes ADD COLUMN mobile_operateur TEXT")
+        if "mobile_reference" not in existing_sales_columns:
+            cursor.execute("ALTER TABLE ventes ADD COLUMN mobile_reference TEXT")
+
         conn.commit()
         conn.close()
         print("✅ Base de données initialisée avec succès")
@@ -411,29 +433,51 @@ def get_produits():
 @role_required("admin")
 def add_produit():
     data = request.json
+    code_barres = (data.get("code_barres") or "").strip()
+    if code_barres == "":
+        code_barres = None
+
     conn = get_db()
-    conn.execute("""
-        INSERT INTO produits (nom, prix, stock, stock_alerte, categorie_id) 
-        VALUES (?, ?, ?, ?, ?)
-    """, (data["nom"], data["prix"], data.get("stock", 0),
-          data.get("stock_alerte", 5), data.get("categorie_id")))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
+    try:
+        conn.execute("""
+            INSERT INTO produits (nom, code_barres, prix, stock, stock_alerte, categorie_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (data["nom"], code_barres, data["prix"], data.get("stock", 0),
+              data.get("stock_alerte", 5), data.get("categorie_id")))
+        conn.commit()
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "message": "Ce code-barres existe deja."}), 400
+    finally:
+        conn.close()
 
 @app.route("/api/produits/<int:id>", methods=["PUT"])
 @role_required("admin")
 def update_produit(id):
     data = request.json
     conn = get_db()
-    conn.execute("""
-        UPDATE produits SET nom=?, prix=?, stock=?, stock_alerte=?, categorie_id=?
-        WHERE id=?
-    """, (data["nom"], data["prix"], data.get("stock", 0),
-          data.get("stock_alerte", 5), data.get("categorie_id"), id))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
+    existing = conn.execute("SELECT code_barres FROM produits WHERE id = ?", (id,)).fetchone()
+    if not existing:
+        conn.close()
+        return jsonify({"success": False, "message": "Produit introuvable."}), 404
+
+    if "code_barres" in data:
+        code_barres = (data.get("code_barres") or "").strip() or None
+    else:
+        code_barres = existing["code_barres"]
+
+    try:
+        conn.execute("""
+            UPDATE produits SET nom=?, code_barres=?, prix=?, stock=?, stock_alerte=?, categorie_id=?
+            WHERE id=?
+        """, (data["nom"], code_barres, data["prix"], data.get("stock", 0),
+              data.get("stock_alerte", 5), data.get("categorie_id"), id))
+        conn.commit()
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "message": "Ce code-barres existe deja."}), 400
+    finally:
+        conn.close()
 
 @app.route("/api/produits/<int:id>", methods=["DELETE"])
 @role_required("admin")
@@ -459,11 +503,23 @@ def get_ventes():
 @role_required("admin", "caissiere")
 def add_vente():
     data = request.json
+    mobile_operateur = None
+    mobile_reference = None
+
+    if data.get("paiement") == "mobile":
+        operateurs_valides = {"orange", "mtn", "moov"}
+        mobile_operateur = (data.get("mobile_operateur") or "").strip().lower()
+        mobile_reference = (data.get("mobile_reference") or "").strip()
+        if mobile_operateur not in operateurs_valides:
+            return jsonify({"success": False, "message": "Operateur Mobile Money invalide."}), 400
+        if mobile_reference == "":
+            mobile_reference = None
+
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO ventes (total, paiement, monnaie) VALUES (?, ?, ?)
-    """, (data["total"], data.get("paiement", "especes"), data.get("monnaie", 0)))
+        INSERT INTO ventes (total, paiement, mobile_operateur, mobile_reference, monnaie) VALUES (?, ?, ?, ?, ?)
+    """, (data["total"], data.get("paiement", "especes"), mobile_operateur, mobile_reference, data.get("monnaie", 0)))
     vente_id = cursor.lastrowid
     for item in data["items"]:
         cursor.execute("""
@@ -635,14 +691,20 @@ def _seed_catalog(conn):
         ("Montre digitale", 15000, 15, 2, "Accessoires"),
     ]
 
-    for nom, prix, stock, stock_alerte, cat_name in produits:
+    for idx, item in enumerate(produits, start=1):
+        if len(item) == 6:
+            nom, code_barres, prix, stock, stock_alerte, cat_name = item
+        else:
+            nom, prix, stock, stock_alerte, cat_name = item
+            code_barres = f"618{idx:010d}"
+
         conn.execute(
             """
-            INSERT INTO produits (nom, prix, stock, stock_alerte, categorie_id, actif)
-            SELECT ?, ?, ?, ?, ?, 1
+            INSERT INTO produits (nom, code_barres, prix, stock, stock_alerte, categorie_id, actif)
+            SELECT ?, ?, ?, ?, ?, ?, 1
             WHERE NOT EXISTS (SELECT 1 FROM produits WHERE nom = ?)
             """,
-            (nom, prix, stock, stock_alerte, cat_map[cat_name], nom),
+            (nom, code_barres, prix, stock, stock_alerte, cat_map[cat_name], nom),
         )
 
 

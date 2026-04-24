@@ -51,6 +51,7 @@
                     <thead>
                         <tr>
                             <th>Nom</th>
+                            <th>Code-barres</th>
                             <th>Catégorie</th>
                             <th>Prix</th>
                             <th>Stock</th>
@@ -76,6 +77,10 @@
             <div class="form-group">
                 <label>Prix (FCFA)</label>
                 <input type="number" id="produit-prix" class="input" placeholder="Ex: 700">
+            </div>
+            <div class="form-group">
+                <label>Code-barres</label>
+                <input type="text" id="produit-code-barres" class="input" placeholder="Ex: 6180000000017">
             </div>
             <div class="form-group">
                 <label>Stock initial</label>
@@ -129,13 +134,15 @@
             const cat = document.getElementById("filtre-cat").value;
             const tbody = document.getElementById("produits-tbody");
             let liste = produits.filter(p => {
-                const matchSearch = p.nom.toLowerCase().includes(search);
+                const codeBarres = (p.code_barres || "").toLowerCase();
+                const matchSearch = p.nom.toLowerCase().includes(search) || codeBarres.includes(search);
                 const matchCat = cat ? p.categorie_id == cat : true;
                 return matchSearch && matchCat;
             });
             tbody.innerHTML = liste.map(p => `
                 <tr>
                     <td>${p.nom}</td>
+                    <td>${p.code_barres || '-'}</td>
                     <td>${p.categorie_nom || "-"}</td>
                     <td>${p.prix.toLocaleString("fr-FR")} FCFA</td>
                     <td>${p.stock}</td>
@@ -157,6 +164,7 @@
             document.getElementById("produit-id").value = "";
             document.getElementById("produit-nom").value = "";
             document.getElementById("produit-prix").value = "";
+            document.getElementById("produit-code-barres").value = "";
             document.getElementById("produit-stock").value = "";
             document.getElementById("produit-alerte").value = "5";
             document.getElementById("modal").classList.remove("hidden");
@@ -172,6 +180,7 @@
             document.getElementById("produit-id").value = p.id;
             document.getElementById("produit-nom").value = p.nom;
             document.getElementById("produit-prix").value = p.prix;
+            document.getElementById("produit-code-barres").value = p.code_barres || "";
             document.getElementById("produit-stock").value = p.stock;
             document.getElementById("produit-alerte").value = p.stock_alerte;
             document.getElementById("produit-categorie").value = p.categorie_id;
@@ -183,16 +192,23 @@
             const data = {
                 nom: document.getElementById("produit-nom").value,
                 prix: parseFloat(document.getElementById("produit-prix").value),
+                code_barres: document.getElementById("produit-code-barres").value.trim(),
                 stock: parseInt(document.getElementById("produit-stock").value) || 0,
                 stock_alerte: parseInt(document.getElementById("produit-alerte").value) || 5,
                 categorie_id: parseInt(document.getElementById("produit-categorie").value) || null
             };
+            let res;
             if (id) {
-                await fetch(`/api/produits/${id}`, { method: "PUT",
+                res = await fetch(`/api/produits/${id}`, { method: "PUT",
                     headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
             } else {
-                await fetch("/api/produits", { method: "POST",
+                res = await fetch("/api/produits", { method: "POST",
                     headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+            }
+            if (!res.ok) {
+                const result = await res.json();
+                alert(result.message || "Erreur lors de l'enregistrement du produit.");
+                return;
             }
             fermerModal();
             charger();

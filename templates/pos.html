@@ -42,7 +42,7 @@
                 </div>
                 <!-- Recherche et filtre -->
                 <div class="pos-filters">
-                    <input type="text" id="search" placeholder="🔍 Rechercher un produit..." 
+                    <input type="text" id="search" placeholder="🔍 Rechercher (nom / code-barres)" 
                            class="input" oninput="filtrerProduits()">
                     <div id="categories-filter" class="categories-filter"></div>
                 </div>
@@ -67,6 +67,15 @@
                         <button class="btn-paiement" onclick="setPaiement('mobile')" id="btn-mobile">
                             📱 Mobile Money
                         </button>
+                    </div>
+                    <div id="mobile-section" class="mobile-section hidden">
+                        <select id="mobile-operateur" class="input">
+                            <option value="orange">Orange Money CI</option>
+                            <option value="mtn">MTN MoMo CI</option>
+                            <option value="moov">Moov Money CI</option>
+                        </select>
+                        <input type="text" id="mobile-reference" class="input" 
+                               placeholder="Référence transaction (optionnel)">
                     </div>
                     <div id="monnaie-section" class="monnaie-section">
                         <input type="number" id="montant-recu" placeholder="Montant reçu" 
@@ -133,10 +142,11 @@
         function filtrerProduits() { afficherProduits(); }
 
         function afficherProduits() {
-            const search = document.getElementById("search").value.toLowerCase();
+            const search = document.getElementById("search").value.trim().toLowerCase();
             const grid = document.getElementById("produits-grid");
             let liste = produits.filter(p => {
-                const matchSearch = p.nom.toLowerCase().includes(search);
+                const barcode = (p.code_barres || "").toLowerCase();
+                const matchSearch = p.nom.toLowerCase().includes(search) || barcode.includes(search);
                 const matchCat = categorieActive ? p.categorie_id === categorieActive : true;
                 return matchSearch && matchCat;
             });
@@ -144,6 +154,7 @@
                 <div class="produit-card ${p.stock <= 0 ? 'rupture' : ''}" 
                      onclick="${p.stock > 0 ? `ajouterAuPanier(${p.id})` : ''}">
                     <div class="produit-nom">${p.nom}</div>
+                    <div class="produit-barcode">🏷️ ${p.code_barres || '-'}</div>
                     <div class="produit-prix">${p.prix.toLocaleString("fr-FR")} FCFA</div>
                     <div class="produit-stock ${p.stock <= p.stock_alerte ? 'stock-bas' : ''}">
                         Stock: ${p.stock}
@@ -212,6 +223,7 @@
             document.getElementById("btn-mobile").classList.toggle("active", type === "mobile");
             document.getElementById("monnaie-section").style.display = 
                 type === "especes" ? "block" : "none";
+            document.getElementById("mobile-section").classList.toggle("hidden", type !== "mobile");
         }
 
         function calculMonnaie() {
@@ -226,23 +238,71 @@
             if (panier.length === 0) return alert("Le panier est vide !");
             const total = panier.reduce((s, i) => s + i.prix_unitaire * i.quantite, 0);
             const recu = parseFloat(document.getElementById("montant-recu").value) || total;
+
+            if (paiement === "especes" && recu < total) {
+                return alert("Montant reçu insuffisant.");
+            }
+
+            const mobileOperateur = document.getElementById("mobile-operateur").value;
+            const mobileReference = document.getElementById("mobile-reference").value.trim();
+
             const data = {
                 total, paiement,
                 monnaie: paiement === "especes" ? recu - total : 0,
+                mobile_operateur: paiement === "mobile" ? mobileOperateur : null,
+                mobile_reference: paiement === "mobile" ? mobileReference : null,
                 items: panier.map(i => ({ ...i, sous_total: i.prix_unitaire * i.quantite }))
             };
-            await fetch("/api/ventes", { method: "POST",
+            const res = await fetch("/api/ventes", { method: "POST",
                 headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                return alert(result.message || "Impossible d'enregistrer la vente.");
+            }
+
+            const operateurLibelles = {
+                orange: "Orange Money CI",
+                mtn: "MTN MoMo CI",
+                moov: "Moov Money CI"
+            };
+            const paiementLabel = paiement === "mobile"
+                ? `Mobile Money (${operateurLibelles[mobileOperateur] || mobileOperateur})`
+                : "Espèces";
             document.getElementById("modal-message").textContent = 
-                `Total : ${total.toLocaleString("fr-FR")} FCFA — Paiement : ${paiement}`;
+                `Total : ${total.toLocaleString("fr-FR")} FCFA — Paiement : ${paiementLabel}`;
             document.getElementById("modal").classList.remove("hidden");
             viderPanier();
+            document.getElementById("mobile-reference").value = "";
             charger();
         }
 
         function fermerModal() {
             document.getElementById("modal").classList.add("hidden");
         }
+
+        function scannerCodeBarres(event) {
+            if (event.key !== "Enter") return;
+
+            const input = document.getElementById("search");
+            const code = input.value.trim();
+            if (!code) return;
+
+            const produit = produits.find(p => (p.code_barres || "") === code);
+            if (!produit) {
+                alert("Aucun produit ne correspond à ce code-barres.");
+                return;
+            }
+            if (produit.stock <= 0) {
+                alert("Ce produit est en rupture de stock.");
+                return;
+            }
+
+            ajouterAuPanier(produit.id);
+            input.value = "";
+            afficherProduits();
+        }
+
+        document.getElementById("search").addEventListener("keydown", scannerCodeBarres);
 
         charger();
     </script>

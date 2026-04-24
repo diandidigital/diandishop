@@ -417,6 +417,12 @@ body {
     margin-bottom: 4px;
 }
 
+.produit-barcode {
+    font-size: 0.72rem;
+    color: #9ca3af;
+    margin-bottom: 6px;
+}
+
 .produit-stock {
     font-size: 0.75rem;
     color: #9ca3af;
@@ -539,6 +545,16 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.mobile-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hidden {
+    display: none;
 }
 
 .monnaie-result {
